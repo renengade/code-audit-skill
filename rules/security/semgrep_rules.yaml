@@ -1,0 +1,486 @@
+# Semgrep 规则：python-security-audit skill 内置（离线可用）
+#
+# 用法：
+#   semgrep --config rules/security/semgrep_rules.yaml <目标目录>
+#   或 scan.py 默认即使用本文件（无需联网）。
+#
+# 定位：启发式线索（lead），不是确认漏洞。命中必须人工复核后才能进入报告。
+# 结构对应 rules/security/python_rules.md 的 PY-01～PY-16 与 backdoor_hunting.md 的 A–I。
+
+rules:
+  # ---------------------------------------------------------------- PY-01 命令执行
+  - id: pysec-py01-os-system
+    message: os.system/os.popen 使用非字面量命令，疑似命令注入
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-78"
+      owasp: "A03: Injection"
+      category: security
+    patterns:
+      - pattern-either:
+          - pattern: os.system($CMD)
+          - pattern: os.popen($CMD)
+      - pattern-not: os.system("...")
+      - pattern-not: os.popen("...")
+
+  - id: pysec-py01-subprocess-shell-true
+    message: subprocess 使用 shell=True，确认参数是否可控
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-78"
+      owasp: "A03: Injection"
+      category: security
+    pattern-either:
+      - pattern: subprocess.run(..., shell=True, ...)
+      - pattern: subprocess.Popen(..., shell=True, ...)
+      - pattern: subprocess.call(..., shell=True, ...)
+      - pattern: subprocess.check_call(..., shell=True, ...)
+      - pattern: subprocess.check_output(..., shell=True, ...)
+
+  # ---------------------------------------------------------------- PY-02 代码执行
+  - id: pysec-py02-eval-exec
+    message: 动态执行，确认参数是否可控
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-95"
+      owasp: "A03: Injection"
+      category: security
+    pattern-either:
+      - pattern: eval($X)
+      - pattern: exec($X)
+      - pattern: compile($X)
+
+  # ---------------------------------------------------------------- PY-03 SQL 注入
+  - id: pysec-py03-execute-nonliteral
+    message: SQL execute 使用非字面量单参数，疑似拼接
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-89"
+      owasp: "A03: Injection"
+      category: security
+    patterns:
+      - pattern-either:
+          - pattern: $CUR.execute($Q)
+          - pattern: $CUR.executemany($Q)
+      - pattern-not: $CUR.execute("...")
+      - pattern-not: $CUR.executemany("...")
+
+  - id: pysec-py03-sql-fstring
+    message: SQL 查询使用 f-string/拼接/取模格式化
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-89"
+      owasp: "A03: Injection"
+      category: security
+    pattern-either:
+      - pattern: $CUR.execute(f"...{$X}...")
+      - pattern: $CUR.execute("..." + $X)
+      - pattern: $CUR.execute($X % $Y)
+      - pattern: $M.raw(f"...{$X}...")
+
+  - id: pysec-py03-django-extra
+    message: Django .extra() 已废弃且易注入，改用 filter()
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-89"
+      category: security
+    pattern: $M.extra(...)
+
+  - id: pysec-py03-sqlalchemy-text-nonliteral
+    message: SQLAlchemy text() 直接接收非字面量
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-89"
+      category: security
+    patterns:
+      - pattern: text($Q)
+      - pattern-not: text("...")
+
+  # ---------------------------------------------------------------- PY-04 SSTI
+  - id: pysec-py04-render-template-string
+    message: render_template_string 动态模板源，疑似 SSTI
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-1336"
+      category: security
+    patterns:
+      - pattern: render_template_string($T)
+      - pattern-not: render_template_string("...")
+
+  - id: pysec-py04-jinja-from-string
+    message: jinja2 动态模板源，确认输入来源
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-1336"
+      category: security
+    patterns:
+      - pattern: $ENV.from_string($T)
+      - pattern-not: $ENV.from_string("...")
+
+  - id: pysec-py04-autoescape-false
+    message: 模板引擎关闭自动转义，XSS 风险
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-79"
+      owasp: "A03: Injection"
+      category: security
+    pattern: $E(..., autoescape=False, ...)
+
+  # ---------------------------------------------------------------- PY-05 反序列化
+  - id: pysec-py05-pickle
+    message: pickle/dill/joblib/marshal 反序列化不可信数据可致 RCE
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-502"
+      owasp: "A08: Software and Data Integrity Failures"
+      category: security
+    pattern-either:
+      - pattern: pickle.load(...)
+      - pattern: pickle.loads(...)
+      - pattern: cPickle.load(...)
+      - pattern: cPickle.loads(...)
+      - pattern: dill.load(...)
+      - pattern: dill.loads(...)
+      - pattern: joblib.load(...)
+      - pattern: marshal.load(...)
+      - pattern: marshal.loads(...)
+
+  - id: pysec-py05-yaml-unsafe
+    message: yaml.load 未使用 SafeLoader（FullLoader 也不安全）
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-502"
+      category: security
+    patterns:
+      - pattern: yaml.load($D, ...)
+      - pattern-not: yaml.load($D, Loader=yaml.SafeLoader, ...)
+      - pattern-not: yaml.load($D, Loader=SafeLoader, ...)
+      - pattern-not: yaml.load($D, Loader=yaml.CSafeLoader, ...)
+
+  - id: pysec-py05-torch-load
+    message: torch.load 未设置 weights_only=True
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-502"
+      category: security
+    patterns:
+      - pattern: torch.load(...)
+      - pattern-not: torch.load(..., weights_only=True, ...)
+
+  # ---------------------------------------------------------------- PY-06 路径穿越
+  - id: pysec-py06-open-joined-path
+    message: open() 接收拼接路径，疑似路径穿越
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-22"
+      category: security
+    pattern-either:
+      - pattern: open(os.path.join($B, $X), ...)
+      - pattern: open(f"...{$X}", ...)
+
+  - id: pysec-py06-send-file
+    message: send_file 接收非字面量路径，确认是否校验根目录
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-22"
+      category: security
+    patterns:
+      - pattern: $F.send_file($P, ...)
+      - pattern-not: $F.send_file("...", ...)
+
+  - id: pysec-py06-extractall
+    message: extractall/extract 未使用 filter="data"
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-22"
+      category: security
+    patterns:
+      - pattern-either:
+          - pattern: $M.extractall(...)
+          - pattern: $M.extract(...)
+      - pattern-not: $M.extractall(..., filter="data", ...)
+
+  # ---------------------------------------------------------------- PY-07 SSRF / 重定向
+  - id: pysec-py07-requests-nonliteral-url
+    message: HTTP 请求 URL 非字面量，疑似 SSRF
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-918"
+      owasp: "A10: Server-Side Request Forgery"
+      category: security
+    patterns:
+      - pattern-either:
+          - pattern: requests.$M($U, ...)
+          - pattern: httpx.$M($U, ...)
+          - pattern: urllib.request.urlopen($U, ...)
+      - metavariable-regex:
+          metavariable: $M
+          regex: ^(get|post|put|patch|delete|head|options|request)$
+      - pattern-not: requests.get("...", ...)
+      - pattern-not: requests.post("...", ...)
+      - pattern-not: httpx.get("...", ...)
+      - pattern-not: httpx.post("...", ...)
+      - pattern-not: urllib.request.urlopen("...", ...)
+
+  - id: pysec-py07-open-redirect
+    message: redirect 接收非字面量目标，疑似开放重定向
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-601"
+      category: security
+    patterns:
+      - pattern: redirect($U, ...)
+      - pattern-not: redirect("...", ...)
+
+  # ---------------------------------------------------------------- PY-08 XXE
+  - id: pysec-py08-lxml-resolve-entities
+    message: lxml 解析器允许实体解析，XXE 风险
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-611"
+      category: security
+    pattern: $M.XMLParser(..., resolve_entities=True, ...)
+
+  # ---------------------------------------------------------------- PY-09 认证与会话
+  - id: pysec-py09-jwt-verify-off
+    message: JWT 未校验签名/算法（verify_signature=False 或 alg=none）
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-287"
+      owasp: "A07: Identification and Authentication Failures"
+      category: security
+    pattern-either:
+      - pattern: 'jwt.decode(..., options={"verify_signature": False}, ...)'
+      - pattern: 'jwt.decode($T, $K, ..., algorithms=["none"], ...)'
+      - pattern: 'jwt.decode($T, ..., verify=False, ...)'
+
+  - id: pysec-py09-jwt-no-algorithms
+    message: jwt.decode 未固定 algorithms
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-347"
+      category: security
+    pattern: jwt.decode($T, $K)
+
+  # ---------------------------------------------------------------- PY-11 加密与随机数
+  - id: pysec-py11-weak-hash
+    message: 使用 MD5/SHA1，确认是否用于安全场景
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-327"
+      owasp: "A02: Cryptographic Failures"
+      category: security
+    pattern-either:
+      - pattern: hashlib.md5(...)
+      - pattern: hashlib.sha1(...)
+
+  - id: pysec-py11-random-token
+    message: 使用 random 生成安全令牌，应改用 secrets
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-338"
+      category: security
+    patterns:
+      - pattern: $T = random.$F(...)
+      - metavariable-regex:
+          metavariable: $T
+          regex: (?i).*(token|secret|key|passwd|password|nonce|salt|otp|verify|code).*
+
+  - id: pysec-py11-tls-verify-false
+    message: 关闭 TLS 证书校验
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-295"
+      category: security
+    pattern-either:
+      - pattern: requests.$M(..., verify=False, ...)
+      - pattern: httpx.$M(..., verify=False, ...)
+
+  # ---------------------------------------------------------------- PY-12 密钥硬编码
+  - id: pysec-py12-hardcoded-secret
+    message: 疑似硬编码凭据，确认是否为占位符
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-798"
+      owasp: "A07: Identification and Authentication Failures"
+      category: security
+    pattern-regex: (?i)\b(secret|api[_-]?key|apikey|access[_-]?token|auth[_-]?token|password|passwd|pwd)\w*\s*[:=]\s*["'][^"'\n]{8,}["']
+
+  # ---------------------------------------------------------------- PY-13 文件上传
+  - id: pysec-py13-upload-save
+    message: 处理上传文件，确认扩展名白名单/随机名/目录隔离
+    languages: [python]
+    severity: INFO
+    metadata:
+      cwe: "CWE-434"
+      category: security
+    pattern-either:
+      - pattern: request.files[$X]
+      - pattern: $U = UploadFile(...)
+
+  # ---------------------------------------------------------------- PY-14 日志与信息泄露
+  - id: pysec-py14-log-secret
+    message: 日志疑似记录敏感字段
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-532"
+      owasp: "A09: Security Logging and Monitoring Failures"
+      category: security
+    pattern-regex: (?i)\w*logger?\w*\.(info|debug|warning|error|critical|exception)\([^)]*(password|passwd|token|secret|api[_-]?key|authorization)[^)]*
+
+  # ---------------------------------------------------------------- 配置基线
+  - id: pysec-cfg-flask-debug
+    message: Flask debug=True 残留
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-489"
+      owasp: "A05: Security Misconfiguration"
+      category: security
+    pattern: $APP.run(..., debug=True, ...)
+
+  - id: pysec-cfg-django-debug-true
+    message: Django DEBUG=True
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-489"
+      category: security
+    pattern: DEBUG = True
+
+  - id: pysec-cfg-allowed-hosts-wildcard
+    message: ALLOWED_HOSTS 使用通配
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-942"
+      category: security
+    pattern: ALLOWED_HOSTS = ["*"]
+
+  - id: pysec-cfg-cors-wildcard
+    message: CORS 允许任意来源
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-942"
+      category: security
+    pattern: $C(..., allow_origins=["*"], ...)
+
+  # ---------------------------------------------------------------- 后门线索（backdoor_hunting.md）
+  - id: pysec-bd-decode-exec
+    message: 解码/解压后动态执行，疑似混淆载荷
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-95"
+      category: backdoor-lead
+    pattern-either:
+      - pattern: exec(base64.b64decode(...))
+      - pattern: eval(base64.b64decode(...))
+      - pattern: exec(zlib.decompress(...))
+      - pattern: eval(zlib.decompress(...))
+      - pattern: exec(marshal.loads(...))
+      - pattern: eval(marshal.loads(...))
+      - pattern: exec(compile(...))
+      - pattern: eval(compile(...))
+      - pattern: exec(codecs.decode(...))
+      - pattern: eval(codecs.decode(...))
+      - pattern: exec(bytes.fromhex(...))
+
+  - id: pysec-bd-reverse-shell
+    message: 反弹 shell 原语，确认业务必要性
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-78"
+      category: backdoor-lead
+    pattern-either:
+      - pattern: pty.spawn(...)
+      - pattern: os.dup2(...)
+      - pattern: $S.dup2(...)
+
+  - id: pysec-bd-dynamic-import
+    message: 动态导入，确认模块名是否可控
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-95"
+      category: backdoor-lead
+    patterns:
+      - pattern-either:
+          - pattern: __import__($M)
+          - pattern: importlib.import_module($M)
+      - pattern-not: __import__("...")
+      - pattern-not: importlib.import_module("...")
+
+  - id: pysec-bd-ci-curl-sh
+    message: CI/构建中下载并执行脚本
+    languages: [generic]
+    severity: WARNING
+    metadata:
+      category: backdoor-lead
+    pattern-regex: (curl|wget)\s+[^|\n]+\|\s*(sudo\s+)?(ba|z)?sh
+    paths:
+      include:
+        - "**/*.yml"
+        - "**/*.yaml"
+        - "**/*.sh"
+        - "**/Dockerfile*"
+        - "**/Makefile"
+        - "**/Makefile.*"
+
+  - id: pysec-bd-ci-pr-target
+    message: pull_request_target 可能以高权限运行不可信代码
+    languages: [generic]
+    severity: WARNING
+    metadata:
+      category: backdoor-lead
+    pattern-regex: pull_request_target
+    paths:
+      include:
+        - "**/*.yml"
+        - "**/*.yaml"
+
+  - id: pysec-bd-private-key
+    message: 私钥内容入库，立即确认并轮换
+    languages: [generic]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-798"
+      category: backdoor-lead
+    pattern-regex: -----BEGIN [A-Z ]*PRIVATE KEY-----
+
+  - id: pysec-bd-aws-key
+    message: 疑似 AWS Access Key ID
+    languages: [generic]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-798"
+      category: backdoor-lead
+    pattern-regex: AKIA[0-9A-Z]{16}
