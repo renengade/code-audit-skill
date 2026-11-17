@@ -1,4 +1,4 @@
-# python-security-audit
+# code-audit-skill
 
 一个 [OpenCode](https://opencode.ai) Skill：对 Python 项目做**白盒安全代码审计**。
 SAST 自动化 + 人工 source→sink 数据流追踪 + 依赖/配置/后门排查，输出可复现、可修复、可归档的结构化报告。
@@ -24,7 +24,7 @@ SAST 自动化 + 人工 source→sink 数据流追踪 + 依赖/配置/后门排�
 ```bash
 git clone https://github.com/renengade/code-audit-skill.git
 mkdir -p ~/.config/opencode/skills
-ln -s "$(pwd)/code-audit-skill" ~/.config/opencode/skills/python-security-audit
+ln -s "$(pwd)/code-audit-skill" ~/.config/opencode/skills/code-audit-skill
 ```
 
 或在 `opencode.jsonc` 中添加 skill 目录：
@@ -36,7 +36,7 @@ ln -s "$(pwd)/code-audit-skill" ~/.config/opencode/skills/python-security-audit
 }
 ```
 
-> 目录名决定 skill ID：本仓库根目录即 skill 目录，ID 为 `python-security-audit`（见 SKILL.md）。若以 `code-audit-skill` 命名目录，ID 亦随之变化。
+> 目录名决定 skill ID：本仓库根目录即 skill 目录，ID 为 `code-audit-skill`（见 SKILL.md）。若改用其他目录名，ID 亦随之变化。
 
 ## 使用
 

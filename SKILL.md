@@ -1,5 +1,5 @@
 ---
-name: Python Security Audit
+name: code-audit-skill
 description: 对 Python 项目做白盒安全审计。识别框架与攻击面，检查依赖、配置与后门，追踪 SQL 注入、命令执行、SSTI、反序列化、路径穿越、SSRF、XXE、认证授权、加密与密钥等风险，验证后按 CVSS 定级并输出含修复代码的结构化报告。支持 security、logic、arch、quality、perf、full 六种模式。当用户要求“安全审计”“代码审计”“Python 代码审查”“扫描漏洞”“security audit”“后门排查”时使用。
 license: MIT
 ---

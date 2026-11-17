@@ -1,4 +1,4 @@
-# Semgrep 规则：python-security-audit skill 内置（离线可用）
+# Semgrep 规则：code-audit-skill skill 内置（离线可用）
 #
 # 用法：
 #   semgrep --config rules/security/semgrep_rules.yaml <目标目录>

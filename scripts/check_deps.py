@@ -280,7 +280,7 @@ def query_osv(packages: list[dict], timeout: int) -> tuple[list[dict], dict]:
         data=body,
         headers={
             "Content-Type": "application/json",
-            "User-Agent": "python-security-audit-skill/1.0",
+            "User-Agent": "code-audit-skill/1.0",
         },
         method="POST",
     )
