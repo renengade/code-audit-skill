@@ -45,20 +45,34 @@
 | Low | | |
 | Info | | |
 
-## 5. 发现详情
+## 5. 审计覆盖
+
+| 项 | 数值 |
+|---|---|
+| total_files | 待审文件总数 |
+| reviewed_files | 已审文件数 |
+| skipped_files | 跳过数 |
+| coverage_rate | reviewed / total |
+
+skipped 明细（每条必须有具体原因，禁止静默遗漏）：
+
+| 文件 | 原因 |
+|---|---|
+
+## 6. 发现详情
 
 （按严重级别排序，每条使用下方模板）
 
-## 6. 系统性建议
+## 7. 系统性建议
 
 - 编码规范 / 安全库 / 框架配置 / CI 门禁 / 依赖治理
 
-## 7. 误报与线索
+## 8. 误报与线索
 
 | 告警 | 位置 | 排除理由 |
 |---|---|---|
 
-## 8. 附录
+## 9. 附录
 
 - 工具版本与输出、扫描范围、证据目录
 ```
@@ -71,8 +85,9 @@
 | 项 | 内容 |
 |---|---|
 | 级别 | 高危（CVSS 3.1: 8.3） |
+| category | security |
 | CWE | CWE-89 |
-| 位置 | `app/views/search.py:42` @ `a1b2c3d` |
+| 位置 | `app/views/search.py:42-45` @ `a1b2c3d`（start_line=42, end_line=45） |
 | 状态 | 已确认 |
 | 影响 | 可读取任意表数据，含用户凭证 |
 
@@ -148,13 +163,15 @@ cursor.execute("SELECT * FROM items WHERE name = %s", (q,))
     {
       "id": "VULN-001",
       "title": "用户搜索接口存在 SQL 注入",
+      "category": "security",
       "severity": "high",
       "cvss": 8.3,
       "cvss_vector": "AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N",
       "cwe": "CWE-89",
       "status": "confirmed",
       "file": "app/views/search.py",
-      "line": 42,
+      "start_line": 42,
+      "end_line": 45,
       "commit": "a1b2c3d",
       "source": "request.args['q']",
       "sink": "cursor.execute(f\"SELECT ... '{q}'\")",
@@ -183,16 +200,19 @@ cursor.execute("SELECT * FROM items WHERE name = %s", (q,))
 
 字段约定：
 
+- `category` 枚举：`bug` / `security` / `performance` / `maintainability` / `test` / `style` / `documentation` / `other`；质量项用 `maintainability`，性能项用 `performance`，不再用标题前缀。
 - `severity` 取值：`critical` / `high` / `medium` / `low` / `info`。
 - `status` 取值：`confirmed` / `pending` / `false_positive`。
-- `line` 为整数；无法定位时填 `0` 并在 `evidence` 说明。
-- 质量与性能项 `severity` 仍用上述枚举，但 `cwe` 置空，并在 `title` 前加 `[质量]` 或 `[性能]`。
+- `start_line` / `end_line` 为整数；**两者均为 0 表示定位失败**（语义与 OCR 对齐），并在 `evidence` 说明原因。单行问题 `start_line == end_line`。
+- 工具原始输出（scan/hunt 脚本）用单字段 `line`，写入 findings.json 时换算为 `start_line = end_line = line`。
 
 ## 五、写作要求
 
 1. 先结论后细节，摘要能让非技术负责人读懂。
 2. 每条发现都能回溯到 `file:line` 和 commit。
-3. 修复建议给代码，不写“加强校验”。
-4. 同一根因合并，避免重复计数。
-5. 敏感值统一 `<REDACTED>`。
-6. 不把工具原始输出直接贴进正文，放附录。
+3. **定位自检**：写入前重读该发现的 `file:line` 附近代码，确认行号、内容、数据流三者一致；不一致则修正或降级为线索。
+4. **覆盖率四件套必填**：total_files / reviewed_files / skipped_files / coverage_rate；每个 skipped 都有具体原因。
+5. 修复建议给代码，不写“加强校验”。
+6. 同一根因合并，避免重复计数。
+7. 敏感值统一 `<REDACTED>`。
+8. 不把工具原始输出直接贴进正文，放附录。
