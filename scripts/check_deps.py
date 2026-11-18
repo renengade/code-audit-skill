@@ -8,8 +8,8 @@ Usage:
 
 Default behavior:
 - parse lock files and requirements files (always, offline)
-- run pip-audit when available (network; disable with --offline)
-- query OSV only when --online is passed
+- run pip-audit and query OSV only when --online is passed
+- --offline is an explicit no-network declaration
 
 The script never upgrades packages and never writes to the audited project.
 """
@@ -362,9 +362,12 @@ def main() -> int:
     tools_meta: dict[str, dict] = {}
     findings: list[dict] = []
 
-    if args.offline:
-        tools_meta["pip-audit"] = {"status": "disabled", "reason": "--offline"}
-        tools_meta["osv"] = {"status": "disabled", "reason": "--offline"}
+    if args.offline or not args.online:
+        reason = (
+            "--offline" if args.offline else "pass --online to enable network checks"
+        )
+        tools_meta["pip-audit"] = {"status": "skipped", "reason": reason}
+        tools_meta["osv"] = {"status": "skipped", "reason": reason}
     else:
         try:
             items, meta = run_pip_audit(root, args.timeout, args.use_uvx)
@@ -373,18 +376,12 @@ def main() -> int:
         except Exception as exc:  # noqa: BLE001 - keep the audit running
             tools_meta["pip-audit"] = {"status": "error", "reason": str(exc)[:300]}
 
-        if args.online:
-            try:
-                items, meta = query_osv(packages, args.timeout)
-                findings.extend(items)
-                tools_meta["osv"] = meta
-            except Exception as exc:  # noqa: BLE001 - keep the audit running
-                tools_meta["osv"] = {"status": "error", "reason": str(exc)[:300]}
-        else:
-            tools_meta["osv"] = {
-                "status": "skipped",
-                "reason": "pass --online to query OSV",
-            }
+        try:
+            items, meta = query_osv(packages, args.timeout)
+            findings.extend(items)
+            tools_meta["osv"] = meta
+        except Exception as exc:  # noqa: BLE001 - keep the audit running
+            tools_meta["osv"] = {"status": "error", "reason": str(exc)[:300]}
 
     findings = dedupe(findings)
     by_severity = {"critical": 0, "high": 0, "medium": 0, "low": 0, "unknown": 0}

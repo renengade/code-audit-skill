@@ -90,9 +90,8 @@ python3 "<skill目录>/scripts/hunt_anomalies.py" --path "<项目路径>" --json
 - `scan.py` 默认使用内置规则 `rules/security/semgrep_rules.yaml`（离线可用，无需 Semgrep registry）；`--semgrep-config p/python` 可改用在线 registry。
 - 没有 bandit/semgrep 时可用 `--use-uvx`（需联网，先确认），或 `pip install bandit semgrep`。
 - semgrep 经 `--use-uvx` 运行时自动固定 `--python 3.12`：semgrep 1.185 的 core 在 Python 3.15 下会段错误。
-- CVE 在线查询给 `check_deps.py` 加 `--online`；完全离线用 `--offline`。
+- **默认全离线**；任何联网（pip-audit、OSV）都必须显式传 `check_deps.py --online`，先获得用户授权。
 - 工具告警只是线索，必须人工复核后才能进入报告。
-- 需要联网的检查（OSV、Semgrep registry）先获得用户授权。
 
 验收自检（不联网、不依赖外部工具）：
 
